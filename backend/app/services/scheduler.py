@@ -10,42 +10,23 @@ logger = logging.getLogger(__name__)
 
 async def schedule_checks():
     """
-    Every check_interval_seconds, push one job per monitor onto the Redis queue.
-    The scheduler does NOT run checks — it only decides WHEN to check and pushes
-    jobs for the worker to process.
+    Every interval, check all monitors directly in the same process
+    since we are no longer using a separate background worker.
     """
     try:
-        redis = await get_redis_client()
         async with async_session_maker() as session:
             result = await session.execute(select(Monitor))
             monitors = result.scalars().all()
             
-            jobs_queued = 0
-            for monitor in monitors:
-                # We could add logic to only push if (now - last_checked) >= interval
-                # But for simplicity, the APScheduler interval matches the default interval.
-                # Since interval can be per-monitor, a more advanced approach is to schedule
-                # a job for each monitor dynamically. We'll run this loop every 10 seconds 
-                # and check if the monitor is due for a check.
+            if monitors:
+                from app.services.checker import check_all_monitors
+                check_results = await check_all_monitors(list(monitors))
                 
-                # Simplified: push job for all monitors.
-                # A more robust version would store last_queued time in redis or DB.
-                # We will just push all for now. If you want per-monitor intervals, 
-                # you'd compare current time with last_checked + check_interval_seconds.
-                
-                job = json.dumps({
-                    "id": str(monitor.id),
-                    "url": monitor.url,
-                    "name": monitor.name,
-                    "check_interval_seconds": monitor.check_interval_seconds
-                })
-                await redis.lpush("check-jobs", job)
-                jobs_queued += 1
-                
-            if jobs_queued > 0:
-                logger.info(f"Queued {jobs_queued} jobs.")
+                session.add_all(check_results)
+                await session.commit()
+                logger.info(f"Checked {len(check_results)} monitors.")
     except Exception as e:
-        logger.error(f"Error scheduling checks: {e}")
+        logger.error(f"Error checking monitors: {e}")
 
 scheduler = AsyncIOScheduler()
 

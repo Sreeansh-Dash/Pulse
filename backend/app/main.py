@@ -5,14 +5,12 @@ import logging
 
 from app.api import router as api_router
 from app.services.scheduler import start_scheduler, stop_scheduler
-from app.services.redis_client import close_redis_client
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     start_scheduler()
     yield
     stop_scheduler()
-    await close_redis_client()
 
 app = FastAPI(title="Pulse API", lifespan=lifespan)
 

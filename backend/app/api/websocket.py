@@ -1,33 +1,50 @@
 import json
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from app.services.redis_client import get_redis_client
-from app.services.checker import live_status_store
 import logging
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from typing import List
 
-router = APIRouter()
 logger = logging.getLogger(__name__)
 
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+        logger.info(f"WebSocket connected. Total: {len(self.active_connections)}")
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+            logger.info(f"WebSocket disconnected. Total: {len(self.active_connections)}")
+
+    async def broadcast(self, message: dict):
+        text_data = json.dumps(message)
+        for connection in list(self.active_connections):
+            try:
+                await connection.send_text(text_data)
+            except Exception as e:
+                logger.error(f"Error sending to websocket: {e}")
+                self.disconnect(connection)
+
+manager = ConnectionManager()
+router = APIRouter()
+
 @router.websocket("/ws/status")
-async def websocket_status(websocket: WebSocket):
-    await websocket.accept()
-    
-    # Send current state immediately on connection
-    live_state = await live_status_store.get_all()
-    await websocket.send_json(live_state)
-    
-    redis = await get_redis_client()
-    pubsub = redis.pubsub()
-    await pubsub.subscribe("monitor-status")
-    
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
     try:
-        async for message in pubsub.listen():
-            if message["type"] == "message":
-                event = json.loads(message["data"])
-                await websocket.send_json(event)
+        # Send current state immediately on connection
+        from app.services.checker import live_status_store
+        live_state = await live_status_store.get_all()
+        await websocket.send_json(live_state)
+        
+        while True:
+            # We don't expect messages from the client, just keep the connection alive
+            await websocket.receive_text()
     except WebSocketDisconnect:
-        logger.info("WebSocket disconnected")
+        manager.disconnect(websocket)
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
-    finally:
-        await pubsub.unsubscribe("monitor-status")
-        await pubsub.close()
+        manager.disconnect(websocket)
