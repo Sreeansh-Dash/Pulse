@@ -41,13 +41,6 @@ class LiveStatusStore:
         # Save back to Redis
         await redis.hset("live_status", monitor_id, json.dumps(new_state))
         
-        # Fire alert if necessary
-        from app.services.alerter import discord_alerter
-        # Schedule the alert evaluation in the background to not block
-        asyncio.create_task(discord_alerter.evaluate_and_alert(
-            monitor_id, result, new_state, url, name
-        ))
-        
         # Publish state via Redis
         event = {
             "monitor_id": monitor_id,
