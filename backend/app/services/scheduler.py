@@ -1,10 +1,8 @@
-import json
 import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import select
 from app.database import async_session_maker
 from app.models.models import Monitor
-from app.services.redis_client import get_redis_client
 
 logger = logging.getLogger(__name__)
 
