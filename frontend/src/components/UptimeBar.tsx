@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getApiUrl } from '../utils/api';
 
 interface UptimeBarProps {
   monitorId: string;
@@ -9,7 +10,7 @@ export function UptimeBar({ monitorId }: UptimeBarProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/monitors/${monitorId}/uptime`)
+    fetch(getApiUrl(`/api/monitors/${monitorId}/uptime`))
       .then(r => r.json())
       .then(data => {
         setUptimes(data);

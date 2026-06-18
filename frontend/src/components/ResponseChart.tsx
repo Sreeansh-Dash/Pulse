@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import type { CheckResult } from '../types';
+import { getApiUrl } from '../utils/api';
 
 interface ResponseChartProps {
   monitorId: string;
@@ -11,7 +12,7 @@ export function ResponseChart({ monitorId }: ResponseChartProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/monitors/${monitorId}/results?hours=24`)
+    fetch(getApiUrl(`/api/monitors/${monitorId}/results?hours=24`))
       .then(r => r.json())
       .then(res => {
         // Format for recharts

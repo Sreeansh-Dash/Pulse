@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { getWsUrl } from '../utils/api';
 
 export function useWebSocket(url: string, onMessage: (data: Record<string, unknown>) => void) {
   const [connected, setConnected] = useState(false);
@@ -8,10 +9,7 @@ export function useWebSocket(url: string, onMessage: (data: Record<string, unkno
 
   useEffect(() => {
     function connect() {
-      // Connect using current host + WS protocol
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      // In dev we proxy via Vite, so we use the same host.
-      const wsUrl = `${protocol}//${window.location.host}${url}`;
+      const wsUrl = getWsUrl(url);
       
       ws.current = new WebSocket(wsUrl);
 

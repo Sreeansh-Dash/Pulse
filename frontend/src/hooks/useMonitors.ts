@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Monitor, Incident } from '../types';
+import { getApiUrl } from '../utils/api';
 
 export function useMonitors() {
   const [monitors, setMonitors] = useState<Monitor[]>([]);
@@ -10,8 +11,8 @@ export function useMonitors() {
     const fetchInitialData = async () => {
       try {
         const [monitorsRes, incidentsRes] = await Promise.all([
-          fetch('/api/monitors'),
-          fetch('/api/incidents')
+          fetch(getApiUrl('/api/monitors')),
+          fetch(getApiUrl('/api/incidents'))
         ]);
         
         if (monitorsRes.ok) {
