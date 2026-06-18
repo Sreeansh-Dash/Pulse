@@ -9,6 +9,19 @@ from app.services.checker import live_status_store
 
 router = APIRouter()
 
+from pydantic import BaseModel
+class MonitorCreate(BaseModel):
+    name: str
+    url: str
+
+@router.post("/api/monitors")
+async def create_monitor(monitor: MonitorCreate, session: AsyncSession = Depends(get_db_session)):
+    new_monitor = Monitor(name=monitor.name, url=monitor.url)
+    session.add(new_monitor)
+    await session.commit()
+    await session.refresh(new_monitor)
+    return {"id": str(new_monitor.id), "name": new_monitor.name, "url": new_monitor.url}
+
 @router.get("/api/monitors")
 async def get_monitors(session: AsyncSession = Depends(get_db_session)):
     result = await session.execute(select(Monitor).order_by(Monitor.created_at))
