@@ -65,37 +65,37 @@ async def check_single_monitor(session: aiohttp.ClientSession, monitor: Monitor,
         start = time.monotonic()
         
         try:
-        async with session.get(monitor.url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            async with session.get(monitor.url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                elapsed_ms = (time.monotonic() - start) * 1000
+                
+                # Optionally read body to ensure request finishes
+                await resp.read()
+                
+                result = CheckResult(
+                    monitor_id=str(monitor.id),
+                    status="up" if resp.status < 400 else "down",
+                    response_time_ms=elapsed_ms,
+                    status_code=resp.status,
+                    checked_at=datetime.now(timezone.utc)
+                )
+        except (aiohttp.ClientError, asyncio.TimeoutError):
             elapsed_ms = (time.monotonic() - start) * 1000
-            
-            # Optionally read body to ensure request finishes
-            await resp.read()
-            
             result = CheckResult(
                 monitor_id=str(monitor.id),
-                status="up" if resp.status < 400 else "down",
+                status="down",
                 response_time_ms=elapsed_ms,
-                status_code=resp.status,
+                status_code=None,
                 checked_at=datetime.now(timezone.utc)
             )
-    except (aiohttp.ClientError, asyncio.TimeoutError):
-        elapsed_ms = (time.monotonic() - start) * 1000
-        result = CheckResult(
-            monitor_id=str(monitor.id),
-            status="down",
-            response_time_ms=elapsed_ms,
-            status_code=None,
-            checked_at=datetime.now(timezone.utc)
-        )
-    except Exception as e:
-        elapsed_ms = (time.monotonic() - start) * 1000
-        result = CheckResult(
-            monitor_id=str(monitor.id),
-            status="down",
-            response_time_ms=elapsed_ms,
-            status_code=None,
-            checked_at=datetime.now(timezone.utc)
-        )
+        except Exception as e:
+            elapsed_ms = (time.monotonic() - start) * 1000
+            result = CheckResult(
+                monitor_id=str(monitor.id),
+                status="down",
+                response_time_ms=elapsed_ms,
+                status_code=None,
+                checked_at=datetime.now(timezone.utc)
+            )
     
     # Update live status immediately
     await live_status_store.update(str(monitor.id), result, monitor.url, monitor.name)
