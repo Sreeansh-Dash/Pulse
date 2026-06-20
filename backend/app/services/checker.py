@@ -1,6 +1,7 @@
 import asyncio
 import time
 import json
+import os
 import aiohttp
 from typing import List
 from datetime import datetime, timezone
@@ -58,11 +59,12 @@ class LiveStatusStore:
 
 live_status_store = LiveStatusStore()
 
-async def check_single_monitor(session: aiohttp.ClientSession, monitor: Monitor) -> CheckResult:
+async def check_single_monitor(session: aiohttp.ClientSession, monitor: Monitor, sem: asyncio.Semaphore) -> CheckResult:
     """Check a single URL, record response time and status."""
-    start = time.monotonic()
-    
-    try:
+    async with sem:
+        start = time.monotonic()
+        
+        try:
         async with session.get(monitor.url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
             elapsed_ms = (time.monotonic() - start) * 1000
             
@@ -101,7 +103,9 @@ async def check_single_monitor(session: aiohttp.ClientSession, monitor: Monitor)
 
 async def check_all_monitors(monitors: List[Monitor]) -> List[CheckResult]:
     """Check ALL monitors concurrently using asyncio.gather."""
+    max_concurrent = int(os.environ.get("MAX_CONCURRENT_CHECKS", "50"))
+    sem = asyncio.Semaphore(max_concurrent)
     async with aiohttp.ClientSession() as session:
-        tasks = [check_single_monitor(session, m) for m in monitors]
+        tasks = [check_single_monitor(session, m, sem) for m in monitors]
         results = await asyncio.gather(*tasks)
     return list(results)
