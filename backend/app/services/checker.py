@@ -3,6 +3,7 @@ import time
 import json
 import aiohttp
 from typing import List
+from datetime import datetime, timezone
 from app.models.models import Monitor, CheckResult
 
 class LiveStatusStore:
@@ -73,6 +74,7 @@ async def check_single_monitor(session: aiohttp.ClientSession, monitor: Monitor)
                 status="up" if resp.status < 400 else "down",
                 response_time_ms=elapsed_ms,
                 status_code=resp.status,
+                checked_at=datetime.now(timezone.utc)
             )
     except (aiohttp.ClientError, asyncio.TimeoutError):
         elapsed_ms = (time.monotonic() - start) * 1000
@@ -81,6 +83,7 @@ async def check_single_monitor(session: aiohttp.ClientSession, monitor: Monitor)
             status="down",
             response_time_ms=elapsed_ms,
             status_code=None,
+            checked_at=datetime.now(timezone.utc)
         )
     except Exception as e:
         elapsed_ms = (time.monotonic() - start) * 1000
@@ -89,6 +92,7 @@ async def check_single_monitor(session: aiohttp.ClientSession, monitor: Monitor)
             status="down",
             response_time_ms=elapsed_ms,
             status_code=None,
+            checked_at=datetime.now(timezone.utc)
         )
     
     # Update live status immediately
